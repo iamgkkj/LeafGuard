@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  h1,h2,h3,h4 { font-family: 'Plus Jakarta Sans', sans-serif; letter-spacing: -0.02em; }
+  ::selection { background: #dcfce7; color: #14532d; }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.6);
+  }
+  .glass-strong {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px);
+  }
+  .mesh-bg {
+    background:
+      radial-gradient(800px 400px at 0% 0%, #dcfce7 0%, transparent 60%),
+      radial-gradient(600px 400px at 100% 0%, #fef3c7 0%, transparent 50%),
+      radial-gradient(700px 500px at 50% 120%, #dcfce7 0%, transparent 60%),
+      linear-gradient(180deg, #f0fdf4 0%, #fdf8f6 100%);
+  }
+  .text-gradient-leaf {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .shimmer {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+    background-size: 200% 100%;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #bbf7d0 transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { height: 6px; width: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #bbf7d0; border-radius: 999px; }
+}
+
+/* Custom range slider */
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; background: #dcfce7;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; border-radius: 999px; background: #16a34a; border: 2px solid white; box-shadow: 0 2px 6px rgba(0,0,0,0.15); cursor: pointer;
+}
