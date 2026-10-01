@@ -7,7 +7,7 @@ Lightweight multi-class crop leaf disease identifier using **CBAM-attention Mobi
 <p align="center">
   <a href="https://leafguard-1-78iq.onrender.com/" target="_blank">
     <img
-      src="https://raw.githubusercontent.com/iamgkkj/LeafGuard/main/static/leafguard-qr.png"
+      src="https://github.com/iamgkkj/LeafGuard/blob/ef1ef3817ff1888a19a325c3fcffe5580bb53828/qr/qr_leafguard.png"
       alt="Scan for Live Demo"
       width="220"
     />
