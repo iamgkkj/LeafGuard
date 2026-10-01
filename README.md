@@ -2,6 +2,35 @@
 
 Lightweight multi-class crop leaf disease identifier using **CBAM-attention MobileNetV3-Small** with **Grad-CAM explainability**. Fine-tuned on the [PlantVillage / New Plant Diseases Dataset](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset) (87k images, 38 classes). Includes baseline comparison and polished React UI.
 
+## 🚀 Live Demo
+
+<p align="center">
+  <a href="https://leafguard-1-78iq.onrender.com/" target="_blank">
+    <img
+      src="https://raw.githubusercontent.com/iamgkkj/LeafGuard/main/static/leafguard-qr.png"
+      alt="Scan for Live Demo"
+      width="220"
+    />
+  </a>
+</p>
+
+<p align="center">
+  <strong>📱 Scan to try LeafGuard AI Live 🚀🌿</strong><br>
+  <sub>AI-powered crop leaf disease identification with CBAM-MobileNetV3 and Grad-CAM explainability.</sub>
+</p>
+
+### 🌐 Project Links
+
+| Resource | Link |
+|:---|:---|
+| 🌿 **Live Application** | [Open LeafGuard AI](https://leafguard-1-78iq.onrender.com/) |
+| ⚡ **Backend API** | [LeafGuard FastAPI](https://leafguard-45uj.onrender.com/) |
+| ❤️ **API Health** | [Check API Status](https://leafguard-45uj.onrender.com/health) |
+| 📚 **API Documentation** | [Open Swagger Docs](https://leafguard-45uj.onrender.com/docs) |
+| 💻 **GitHub Repository** | [View Source Code](https://github.com/iamgkkj/LeafGuard) |
+
+> 💡 **Tip:** Upload a crop leaf image in the live application to get a disease prediction along with confidence scores and Grad-CAM / Grad-CAM++ visual explanations.
+
 ## Goal
 - Fine-tune MobileNetV3-Small with CBAM blocks inserted after each inverted-residual stage (torchvision pretrained backbone).
 - Compare vs plain MobileNetV3-Small baseline (no CBAM) on Accuracy / Macro-F1 / FLOPs / Params / FPS / Model size.
