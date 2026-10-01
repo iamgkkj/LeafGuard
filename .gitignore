@@ -5,8 +5,6 @@ __pycache__/
 .venv/
 venv/
 *.egg-info/
-checkpoints/*.pth
-checkpoints/*.pt
 data/New\ Plant\ Diseases\ Dataset*/
 data/raw/
 *.db
