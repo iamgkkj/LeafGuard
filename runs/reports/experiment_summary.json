@@ -1,0 +1,31 @@
+{
+  "project": "LeafGuard AI",
+  "seed": 42,
+  "device": "cuda",
+  "dataset": "vipoooool/new-plant-diseases-dataset",
+  "num_classes": 38,
+  "num_images_total": 70295,
+  "split_sizes": {
+    "train": 56236,
+    "validation": 7029,
+    "test": 7030
+  },
+  "baseline": {
+    "accuracy": 0.997724039829303,
+    "macro_f1": 0.997702035688115,
+    "macro_precision": 0.9976659361503483,
+    "macro_recall": 0.9977543870021395,
+    "parameters": 1556806,
+    "flops": 61492856
+  },
+  "cbam": {
+    "accuracy": 0.9971550497866287,
+    "macro_f1": 0.997118602272413,
+    "macro_precision": 0.9971337998684671,
+    "macro_recall": 0.9971400929366074,
+    "parameters": 1562524,
+    "flops": 62218398
+  },
+  "hypothesis": "CBAM may improve fine-grained disease recognition while remaining below a 10 MB deployment target.",
+  "note": "Measured results, not assumed 5-8% gains, should be reported in the paper."
+}
