@@ -15,6 +15,9 @@ A research project implementing attention-based deep learning for accurate plant
 - [Dataset](#dataset)
 - [Architecture](#architecture)
 - [Installation](#installation)
+- [Web Application Setup](#web-application-setup)
+  - [Backend Setup (FastAPI + PyTorch)](#backend-setup-fastapi--pytorch)
+  - [Frontend Setup (React + Vite)](#frontend-setup-react--vite)
 - [Usage](#usage)
 - [Training Results](#training-results)
 - [Model Performance](#model-performance)
@@ -168,6 +171,138 @@ fvcore>=0.1.0
 - **Recommended:** NVIDIA GPU with CUDA support (tested on RTX 3050 Laptop GPU)
 - **Minimum:** 4GB VRAM
 - **CPU Training:** Possible but extremely slow (not recommended)
+
+---
+
+## 🌐 Web Application Setup
+
+LeafGuard AI includes a web application with a React + Vite frontend and FastAPI + PyTorch backend for real-time disease classification inference.
+
+### Backend Setup (FastAPI + PyTorch)
+
+The backend provides REST API endpoints for model inference, supporting both baseline and CBAM models.
+
+#### Linux Setup
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Install backend dependencies
+pip install -r ../requirements.txt
+
+# Set up environment variables (optional)
+cp ../.env.example ../.env
+# Edit .env to configure CHECKPOINT_DIR and CORS_ORIGINS
+
+# Start the backend server
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+#### Windows Setup
+
+```cmd
+REM Navigate to backend directory
+cd backend
+
+REM Install backend dependencies
+pip install -r ..\requirements.txt
+
+REM Set up environment variables (optional)
+copy ..\.env.example ..\.env
+REM Edit .env to configure CHECKPOINT_DIR and CORS_ORIGINS
+
+REM Start the backend server
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Backend Endpoints:**
+
+- `GET /health` — Health check and model loading status
+- `GET /classes` — List of supported disease classes
+- `POST /predict` — Predict disease for uploaded image
+- `POST /compare` — Compare both models on the same image
+- `POST /gradcam` — Generate Grad-CAM explanation heatmap
+- `GET /history` — Prediction history (empty in minimal version)
+
+**API Documentation:** Once running, visit `http://localhost:8000/docs` for interactive API documentation.
+
+### Frontend Setup (React + Vite)
+
+The frontend provides a clean, responsive interface for uploading leaf images and viewing predictions.
+
+#### Linux Setup
+
+```bash
+# Navigate to frontend directory
+cd frontend
+
+# Install frontend dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env to set VITE_API_URL (default: http://localhost:8000)
+
+# Start development server
+npm run dev
+```
+
+#### Windows Setup
+
+```cmd
+REM Navigate to frontend directory
+cd frontend
+
+REM Install frontend dependencies
+npm install
+
+REM Set up environment variables
+copy .env.example .env
+REM Edit .env to set VITE_API_URL (default: http://localhost:8000)
+
+REM Start development server
+npm run dev
+```
+
+**Frontend Features:**
+
+- Drag-and-drop or click-to-upload image interface
+- Model selector (Baseline, CBAM, or Compare both)
+- Real-time prediction display with confidence scores
+- Top-3 predictions with confidence percentages
+- Optional Grad-CAM explanation heatmaps
+- Responsive design for mobile and desktop
+
+**Building for Production:**
+
+```bash
+# Linux
+npm run build
+
+# Windows
+npm run build
+```
+
+The built files will be in `frontend/dist/` and can be served by any static file server.
+
+### Running Both Services
+
+For local development, run both services in separate terminals:
+
+**Terminal 1 (Backend):**
+```bash
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Terminal 2 (Frontend):**
+```bash
+cd frontend
+npm run dev
+```
+
+Then open `http://localhost:5173` in your browser.
 
 ---
 
@@ -330,7 +465,29 @@ capstone/
 ├── LeafGuard_AI_Research_Experiment_Colab.ipynb  # Main experiment notebook
 ├── README.md                                      # This file
 ├── requirements.txt                               # Python dependencies
+├── .env.example                                   # Environment variables template
+├── .gitignore                                     # Git ignore rules
 ├── .venv/                                         # Virtual environment
+├── backend/                                       # FastAPI + PyTorch inference server
+│   ├── __init__.py
+│   ├── main.py                                    # FastAPI application
+│   ├── models.py                                  # Model architectures (baseline, CBAM)
+│   ├── preprocessing.py                           # Image preprocessing pipeline
+│   ├── model_loader.py                            # Model loading and management
+│   ├── inference.py                               # Prediction logic
+│   ├── gradcam.py                                 # Grad-CAM explainability
+│   ├── requirements.txt                           # Backend dependencies
+│   └── test_preprocessing.py                      # Basic preprocessing tests
+├── frontend/                                      # React + Vite web interface
+│   ├── src/
+│   │   ├── App.jsx                                # Main React component
+│   │   ├── App.css                                # Component styles
+│   │   ├── index.css                              # Global styles
+│   │   └── main.jsx                                # React entry point
+│   ├── index.html
+│   ├── package.json                               # Frontend dependencies
+│   ├── vite.config.js
+│   └── .env.example                               # Frontend environment variables
 ├── data/                                          # Dataset (downloaded automatically)
 ├── runs/                                          # Experiment outputs
 │   ├── figures/                                   # Generated charts and diagrams

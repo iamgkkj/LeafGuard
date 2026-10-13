@@ -1,8 +1,60 @@
+# Private AI context and local notes
+context.md
+ai_context.md
+project_context.md
+private_context.md
+ai_notes/
+.ai/
+.ai-workspace/
+.claude/
+.cursor/
+.windsurf/
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Local databases and uploads
+*.db
+*.sqlite
+*.sqlite3
+uploads/
+temp/
+
+# Generated research outputs
+runs/
+
+# Original exclusions
 *.zip
-.venv
 cartoon-style-green-leaf
 docs
 papers
 data
-context.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
