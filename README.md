@@ -463,11 +463,11 @@ Grad-CAM visualizations showing which regions of the leaf images the model focus
 ```
 capstone/
 ├── LeafGuard_AI_Research_Experiment_Colab.ipynb  # Main experiment notebook
+├── LeafGuard_AI_Research_Results.zip             # Research results archive
 ├── README.md                                      # This file
 ├── requirements.txt                               # Python dependencies
 ├── .env.example                                   # Environment variables template
 ├── .gitignore                                     # Git ignore rules
-├── .venv/                                         # Virtual environment
 ├── backend/                                       # FastAPI + PyTorch inference server
 │   ├── __init__.py
 │   ├── main.py                                    # FastAPI application
@@ -479,16 +479,25 @@ capstone/
 │   ├── requirements.txt                           # Backend dependencies
 │   └── test_preprocessing.py                      # Basic preprocessing tests
 ├── frontend/                                      # React + Vite web interface
-│   ├── src/
-│   │   ├── App.jsx                                # Main React component
-│   │   ├── App.css                                # Component styles
-│   │   ├── index.css                              # Global styles
-│   │   └── main.jsx                                # React entry point
+│   ├── .gitignore
+│   ├── .oxlintrc.json                             # Linter configuration
+│   ├── .env.example                               # Frontend environment variables
 │   ├── index.html
 │   ├── package.json                               # Frontend dependencies
+│   ├── package-lock.json
 │   ├── vite.config.js
-│   └── .env.example                               # Frontend environment variables
-├── data/                                          # Dataset (downloaded automatically)
+│   ├── README.md
+│   ├── public/                                    # Static assets
+│   │   ├── favicon.svg
+│   │   ├── icons.svg
+│   │   ├── logo.png
+│   │   └── logo.svg
+│   └── src/
+│       ├── App.jsx                                # Main React component
+│       ├── App.css                                # Component styles
+│       ├── index.css                              # Global styles
+│       ├── main.jsx                                # React entry point
+│       └── assets/                                # React assets
 ├── runs/                                          # Experiment outputs
 │   ├── figures/                                   # Generated charts and diagrams
 │   │   ├── 01_class_distribution.png
@@ -522,10 +531,7 @@ capstone/
 │   └── splits/                                    # Data split CSV files
 │       ├── train.csv                              # Training set paths
 │       ├── val.csv                                # Validation set paths
-│       └── test.csv                               # Test set paths
-├── docs/                                          # Additional documentation
-├── papers/                                        # Research papers
-└── cartoon-style-green-leaf/                      # Assets
+│       └── test.csv                               # Test set
 ```
 
 ---

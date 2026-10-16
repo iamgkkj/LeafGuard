@@ -41,7 +41,7 @@ uploads/
 temp/
 
 # Generated research outputs
-runs/
+# runs/
 
 # Original exclusions
 *.zip
