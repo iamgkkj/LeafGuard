@@ -4,6 +4,8 @@ Provides inference endpoints for plant disease classification.
 """
 
 import os
+os.environ.setdefault("MPLBACKEND", "Agg")
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 import logging
 from pathlib import Path
 from typing import Optional, List
@@ -18,7 +20,7 @@ import torch
 
 from model_loader import ModelManager
 from inference import predict, compare_models
-from gradcam import generate_gradcam, overlay_heatmap, GRADCAM_AVAILABLE
+from gradcam import generate_gradcam, overlay_heatmap, is_gradcam_available
 
 
 # Configure logging
@@ -257,7 +259,7 @@ async def gradcam_endpoint(
     Returns:
         JSON with heatmap data (base64 encoded) or error if unavailable
     """
-    if not GRADCAM_AVAILABLE:
+    if not is_gradcam_available():
         raise HTTPException(status_code=501, detail="Grad-CAM not available (pytorch-grad-cam not installed)")
     
     if model_manager is None:

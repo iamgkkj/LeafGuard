@@ -5,6 +5,7 @@ Loads both baseline and CBAM models at startup.
 
 import os
 import torch
+torch.set_num_threads(1)
 import torch.nn as nn
 from pathlib import Path
 from typing import Optional, Dict
@@ -110,6 +111,7 @@ class ModelManager:
                 self.baseline_model.load_state_dict(state_dict, strict=False)
                 self.baseline_model.to(self.device)
                 self.baseline_model.eval()
+                del state_dict
                 status['baseline'] = True
                 logger.info(f"Baseline model loaded from {baseline_ckpt}")
             except Exception as e:
@@ -133,6 +135,7 @@ class ModelManager:
                 self.cbam_model.load_state_dict(state_dict, strict=False)
                 self.cbam_model.to(self.device)
                 self.cbam_model.eval()
+                del state_dict
                 status['cbam'] = True
                 logger.info(f"CBAM model loaded from {cbam_ckpt}")
             except Exception as e:

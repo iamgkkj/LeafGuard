@@ -10,18 +10,35 @@ from PIL import Image
 import numpy as np
 import logging
 
-try:
-    from pytorch_grad_cam import GradCAM
-    from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-    GRADCAM_AVAILABLE = True
-except ImportError:
-    GRADCAM_AVAILABLE = False
-    logging.warning("pytorch-grad-cam not installed. Grad-CAM endpoint will be disabled.")
-
 from preprocessing import preprocess_image, denormalize_tensor, IMAGENET_MEAN, IMAGENET_STD
 
 
 logger = logging.getLogger(__name__)
+
+GradCAM = None
+ClassifierOutputTarget = None
+GRADCAM_AVAILABLE = False
+
+
+def _ensure_imports() -> bool:
+    """Lazily import optional Grad-CAM dependencies to keep startup memory low."""
+    global GradCAM, ClassifierOutputTarget, GRADCAM_AVAILABLE
+    if GRADCAM_AVAILABLE:
+        return True
+    try:
+        from pytorch_grad_cam import GradCAM as _GradCAM
+        from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget as _ClassifierOutputTarget
+        GradCAM = _GradCAM
+        ClassifierOutputTarget = _ClassifierOutputTarget
+        GRADCAM_AVAILABLE = True
+        return True
+    except ImportError:
+        logging.warning("pytorch-grad-cam not installed. Grad-CAM endpoint will be disabled.")
+        return False
+
+
+def is_gradcam_available() -> bool:
+    return _ensure_imports()
 
 
 def generate_gradcam(
@@ -44,7 +61,7 @@ def generate_gradcam(
     Returns:
         Heatmap as numpy array or None if Grad-CAM unavailable
     """
-    if not GRADCAM_AVAILABLE:
+    if not _ensure_imports():
         return None
     
     try:
