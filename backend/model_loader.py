@@ -3,6 +3,7 @@ Model loading and management for LeafGuard AI.
 Loads both baseline and CBAM models at startup.
 """
 
+import os
 import torch
 import torch.nn as nn
 from pathlib import Path
@@ -44,19 +45,42 @@ class ModelManager:
         Returns:
             List of class names in label order
         """
+        # Prefer a small, deployment-friendly class-name file over the 16MB CSV.
+        candidate_files = [
+            Path(os.getenv("CLASS_NAMES_FILE", "")).expanduser() if os.getenv("CLASS_NAMES_FILE") else None,
+            self.checkpoint_dir.parent / "class_names.txt",
+            self.checkpoint_dir.parent / "classes.txt",
+            Path(__file__).resolve().parent / "class_names.txt",
+            Path(__file__).resolve().parent / "classes.txt",
+        ]
+
+        for class_file in candidate_files:
+            if class_file is not None and class_file.exists():
+                try:
+                    with open(class_file, "r", encoding="utf-8") as f:
+                        classes = [line.strip() for line in f if line.strip()]
+                    if classes:
+                        self.class_names = classes
+                        logger.info(f"Loaded {len(self.class_names)} class names from {class_file}")
+                        return self.class_names
+                except Exception as e:
+                    logger.warning(f"Could not read class names from {class_file}: {e}")
+
+        # Fall back to the training split CSV when available.
         import pandas as pd
-        
-        # Splits directory is sibling of models directory
+
         splits_dir = self.checkpoint_dir.parent / "splits"
         train_csv = splits_dir / "train.csv"
-        
+
         if not train_csv.exists():
-            raise FileNotFoundError(f"Training split not found at {train_csv}")
-        
+            raise FileNotFoundError(
+                "Class names not found. Provide backend/class_names.txt or runs/splits/train.csv"
+            )
+
         df = pd.read_csv(train_csv)
         self.class_names = sorted(df['class'].unique())
-        logger.info(f"Loaded {len(self.class_names)} class names")
-        
+        logger.info(f"Loaded {len(self.class_names)} class names from {train_csv}")
+
         return self.class_names
     
     def load_models(self) -> Dict[str, bool]:

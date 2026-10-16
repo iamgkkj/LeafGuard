@@ -1,32 +1,12 @@
-
 # LeafGuard AI - Python Dependencies
-# Install: python -m pip install -r requirements.txt
+# Install everything (backend + research tools):
+#   python -m pip install -r requirements.txt
+#
+# For a lean backend-only install (recommended for deployment), use:
+#   python -m pip install -r backend/requirements.txt
 
-# ==========================================
-# Backend: FastAPI
-# ==========================================
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.5.0
-python-multipart>=0.0.6
-
-# ==========================================
-# Deep Learning: PyTorch
-# ==========================================
-torch>=2.0.0
-torchvision>=0.15.0
-
-# ==========================================
-# Image Processing and Data
-# ==========================================
-Pillow>=10.0.0
-numpy>=1.24.0
-pandas>=2.0.0
-
-# ==========================================
-# Explainable AI: Grad-CAM
-# ==========================================
-grad-cam>=1.4.0
+# Core backend dependencies (FastAPI + PyTorch inference)
+-r backend/requirements.txt
 
 # ==========================================
 # Research and Training (Optional)

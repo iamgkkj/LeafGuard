@@ -188,8 +188,8 @@ The backend provides REST API endpoints for model inference, supporting both bas
 # Navigate to backend directory
 cd backend
 
-# Install backend dependencies
-pip install -r ../requirements.txt
+# Install backend dependencies (minimal; recommended for deployment)
+pip install -r requirements.txt
 
 # Set up environment variables (optional)
 cp ../.env.example ../.env
@@ -205,8 +205,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 REM Navigate to backend directory
 cd backend
 
-REM Install backend dependencies
-pip install -r ..\requirements.txt
+REM Install backend dependencies (minimal; recommended for deployment)
+pip install -r requirements.txt
 
 REM Set up environment variables (optional)
 copy ..\.env.example ..\.env

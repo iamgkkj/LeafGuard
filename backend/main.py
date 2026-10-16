@@ -115,6 +115,18 @@ async def health():
     )
 
 
+@app.get("/v1/models")
+async def openai_compatible_models():
+    """Minimal OpenAI-compatible model listing for clients/probes that expect it."""
+    return {
+        "object": "list",
+        "data": [
+            {"id": "leafguard-baseline", "object": "model", "owned_by": "leafguard"},
+            {"id": "leafguard-cbam", "object": "model", "owned_by": "leafguard"},
+        ],
+    }
+
+
 @app.get("/classes", response_model=ClassesResponse)
 async def get_classes():
     """Get the list of supported disease classes."""
