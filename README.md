@@ -18,6 +18,9 @@ A research project implementing attention-based deep learning for accurate plant
 - [Web Application Setup](#web-application-setup)
   - [Backend Setup (FastAPI + PyTorch)](#backend-setup-fastapi--pytorch)
   - [Frontend Setup (React + Vite)](#frontend-setup-react--vite)
+- [Deployment](#deployment)
+  - [Option A — Hugging Face Spaces (Docker, recommended)](#option-a--hugging-face-spaces-docker-recommended)
+  - [Option B — Render](#option-b--render)
 - [Usage](#usage)
 - [Training Results](#training-results)
 - [Model Performance](#model-performance)
@@ -65,7 +68,7 @@ LeafGuard AI is an end-to-end research system for identifying plant diseases fro
 
 ### Dataset Information
 
-- **Source:** [Kaggle - New Plant Diseases Dataset](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset)
+- **Source:** [Kaggle - New Plant Diseases Dataset](https://kaggle.com/datasets/vipoooool/new-plant-diseases-dataset)
 - **Total Images:** 70,295 (after stratified split)
 - **Classes:** 38 distinct disease/healthy categories
 - **Image Size:** 224×224 pixels (RGB)
@@ -75,7 +78,7 @@ LeafGuard AI is an end-to-end research system for identifying plant diseases fro
 
 ![Class Distribution](runs/figures/01_class_distribution.png)
 
-The dataset is well-balanced across all 38 classes, with each class containing approximately 170-200 images in the test set.
+The dataset is well-balanced across all classes, with each class containing approximately 170-200 images in the test set.
 
 ### Sample Images
 
@@ -141,30 +144,50 @@ source .venv/bin/activate
 # On Windows:
 .venv\Scripts\activate
 
-# Install dependencies
+# Install all dependencies (backend + research tools)
+pip install -r requirements.txt
+```
+
+For a lean backend-only install (recommended for deployment):
+
+```bash
+cd backend
 pip install -r requirements.txt
 ```
 
 ### Requirements
 
-Create a `requirements.txt` file with the following dependencies:
+Root `requirements.txt` includes the backend requirements plus optional research/training extras:
 
 ```txt
-torch>=2.0.0
-torchvision>=0.15.0
-numpy>=1.24.0
-pandas>=2.0.0
-matplotlib>=3.7.0
-seaborn>=0.12.0
-scikit-learn>=1.2.0
-pillow>=10.0.0
-tqdm>=4.65.0
+-r backend/requirements.txt
 kagglehub>=0.2.0
-grad-cam>=1.4.0
 torchinfo>=1.7.0
 thop>=0.1.0
 fvcore>=0.1.0
+seaborn>=0.12.0
+scikit-learn>=1.2.0
+matplotlib>=3.7.0
+tqdm>=4.65.0
 ```
+
+Backend `backend/requirements.txt` (minimal; FastAPI + PyTorch inference):
+
+```txt
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+torch>=2.0.0
+torchvision>=0.15.0
+Pillow>=10.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+grad-cam>=1.4.0
+huggingface_hub>=0.24.0
+python-multipart>=0.0.6
+```
+
+> **Note:** The Grad-CAM package on PyPI is named `grad-cam` (imported as `pytorch_grad_cam`). Do not use `pytorch-grad-cam`.
 
 ### GPU Requirements
 
@@ -193,7 +216,7 @@ pip install -r requirements.txt
 
 # Set up environment variables (optional)
 cp ../.env.example ../.env
-# Edit .env to configure CHECKPOINT_DIR and CORS_ORIGINS
+# Edit .env to configure CHECKPOINT_DIR, CORS_ORIGINS, HF_MODEL_REPO, MPLBACKEND
 
 # Start the backend server
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -210,11 +233,22 @@ pip install -r requirements.txt
 
 REM Set up environment variables (optional)
 copy ..\.env.example ..\.env
-REM Edit .env to configure CHECKPOINT_DIR and CORS_ORIGINS
+REM Edit .env to configure CHECKPOINT_DIR, CORS_ORIGINS, HF_MODEL_REPO, MPLBACKEND
 
 REM Start the backend server
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+**Backend Environment Variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CHECKPOINT_DIR` | Directory containing model checkpoints | `runs/models` |
+| `CLASS_NAMES_FILE` | Optional path to class names text file | `backend/class_names.txt` |
+| `HF_MODEL_REPO` | Hugging Face Hub repo ID to download weights from | (none — local files only) |
+| `CORS_ORIGINS` | Comma-separated allowed frontend origins | `http://localhost:5173,http://localhost:3000` |
+| `MPLBACKEND` | Matplotlib backend (use `Agg` on servers) | `Agg` |
+| `OMP_NUM_THREADS` | OpenMP threads for PyTorch/NumPy | `1` |
 
 **Backend Endpoints:**
 
@@ -224,6 +258,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `POST /compare` — Compare both models on the same image
 - `POST /gradcam` — Generate Grad-CAM explanation heatmap
 - `GET /history` — Prediction history (empty in minimal version)
+- `GET /v1/models` — OpenAI-compatible model listing
 
 **API Documentation:** Once running, visit `http://localhost:8000/docs` for interactive API documentation.
 
@@ -268,11 +303,12 @@ npm run dev
 **Frontend Features:**
 
 - Drag-and-drop or click-to-upload image interface
-- Model selector (Baseline, CBAM, or Compare both)
+- Model selector (Compare both — default, CBAM only, Baseline only)
 - Real-time prediction display with confidence scores
 - Top-3 predictions with confidence percentages
 - Optional Grad-CAM explanation heatmaps
 - Responsive design for mobile and desktop
+- Website logo beside header heading, favicon, and GitHub repo link
 
 **Building for Production:**
 
@@ -303,6 +339,78 @@ npm run dev
 ```
 
 Then open `http://localhost:5173` in your browser.
+
+---
+
+## 🚢 Deployment
+
+### Option A — Hugging Face Spaces (Docker, recommended)
+
+Hugging Face Spaces provide more RAM than Render's free tier and let you store model weights on the HF Hub instead of bloating your git repository.
+
+#### 1. Upload model weights to the Hugging Face Hub
+
+```bash
+# Install the HF CLI
+curl -LsSf https://hf.co/cli/install.sh | bash
+
+# Login
+hf auth login
+
+# Create a weights repository
+hf create iamgkkj/leafguard-weights --type model
+
+# Upload the checkpoints
+hf upload iamgkkj/leafguard-weights runs/models/baseline_best.pth runs/models/cbam_best.pth
+```
+
+#### 2. Create the Space
+
+1. Go to https://huggingface.co/spaces and click **Create new Space**.
+2. SDK: **Docker**
+3. Repository name: `LeafGuard-backend` (or reuse `LeafGuard`)
+4. Port: HF Spaces expect the app to listen on **7860** (handled by the `Dockerfile`).
+
+Push the repository containing the `Dockerfile`, `backend/`, and `requirements.txt`. HF will build the image and expose a URL like `https://iamgkkj-leafguard-backend.hf.space`.
+
+#### 3. Set Space secrets/variables
+
+In the Space settings, add:
+
+| Variable | Value |
+|----------|-------|
+| `HF_MODEL_REPO` | `iamgkkj/leafguard-weights` |
+| `CORS_ORIGINS` | `https://your-frontend.vercel.app` |
+| `MPLBACKEND` | `Agg` |
+| `OMP_NUM_THREADS` | `1` |
+
+#### 4. Point the frontend at the Space
+
+On Vercel (or your frontend host), set:
+
+```env
+VITE_API_URL=https://iamgkkj-leafguard-backend.hf.space
+```
+
+Then **Redeploy** (Vite bakes `VITE_API_URL` in at build time).
+
+---
+
+### Option B — Render
+
+Render works but the free 512 MiB instance may run out of memory loading two PyTorch models plus Grad-CAM. Use **Render Starter (2 GB)** or larger for reliable operation.
+
+1. Create a new **Web Service** on Render connected to this repository.
+2. Root directory: `backend`
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+5. Environment variables:
+   - `CHECKPOINT_DIR=runs/models`
+   - `CORS_ORIGINS=https://your-frontend.vercel.app`
+   - `HF_MODEL_REPO=iamgkkj/leafguard-weights` (optional; downloads weights from HF Hub)
+   - `MPLBACKEND=Agg`
+   - `OMP_NUM_THREADS=1`
+6. Deploy. The first request after idle may take 30–60 seconds while models load.
 
 ---
 
@@ -359,6 +467,8 @@ Trained model checkpoints are available in the `runs/models/` directory:
 - **[Baseline Model](runs/models/baseline_best.pth)** — MobileNetV3-Small (6.4 MB)
 - **[CBAM Model](runs/models/cbam_best.pth)** — MobileNetV3-Small + CBAM (6.5 MB)
 
+Or download from Hugging Face Hub: `iamgkkj/leafguard-weights`.
+
 ---
 
 ## 📈 Training Results
@@ -384,7 +494,7 @@ Training and validation loss/accuracy curves for both models over 20 epochs with
 ![Baseline Confusion Matrix](runs/figures/05_confusion_baseline.png)
 
 **CBAM Confusion Matrix:**
-![CBAM Confusion Matrix](runs/figures/06_confusion_baseline.png)
+![CBAM Confusion Matrix](runs/figures/06_confusion_cbam.png)
 
 Both models achieve near-perfect classification with minimal confusion between classes.
 
@@ -464,25 +574,28 @@ Grad-CAM visualizations showing which regions of the leaf images the model focus
 capstone/
 ├── LeafGuard_AI_Research_Experiment_Colab.ipynb  # Main experiment notebook
 ├── LeafGuard_AI_Research_Results.zip             # Research results archive
+├── Dockerfile                                     # Hugging Face Spaces Docker build
+├── .dockerignore                                  # Docker ignore rules
 ├── README.md                                      # This file
-├── requirements.txt                               # Python dependencies
+├── requirements.txt                               # Python dependencies (all)
 ├── .env.example                                   # Environment variables template
 ├── .gitignore                                     # Git ignore rules
 ├── backend/                                       # FastAPI + PyTorch inference server
 │   ├── __init__.py
+│   ├── class_names.txt                            # 38 disease class names (deployment-friendly)
 │   ├── main.py                                    # FastAPI application
 │   ├── models.py                                  # Model architectures (baseline, CBAM)
 │   ├── preprocessing.py                           # Image preprocessing pipeline
-│   ├── model_loader.py                            # Model loading and management
+│   ├── model_loader.py                            # Model loading (local or HF Hub download)
 │   ├── inference.py                               # Prediction logic
 │   ├── gradcam.py                                 # Grad-CAM explainability
-│   ├── requirements.txt                           # Backend dependencies
+│   ├── requirements.txt                           # Backend dependencies (lean)
 │   └── test_preprocessing.py                      # Basic preprocessing tests
 ├── frontend/                                      # React + Vite web interface
 │   ├── .gitignore
 │   ├── .oxlintrc.json                             # Linter configuration
 │   ├── .env.example                               # Frontend environment variables
-│   ├── index.html
+│   ├── index.html                                 # Favicon & title (LeafGuard AI)
 │   ├── package.json                               # Frontend dependencies
 │   ├── package-lock.json
 │   ├── vite.config.js
@@ -612,5 +725,3 @@ For inquiries about this research, please contact:
   <a href="mailto:gopalkrishn2003@gmail.com">
     <img src="https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/>
   </a>
-
-

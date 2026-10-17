@@ -20,5 +20,8 @@ numpy>=1.24.0
 # Grad-CAM (optional - for explainability endpoint)
 grad-cam>=1.4.0
 
+# Model hosting / downloads (Hugging Face Hub)
+huggingface_hub>=0.24.0
+
 # Utilities
 python-multipart>=0.0.6
