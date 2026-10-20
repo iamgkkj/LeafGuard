@@ -29,8 +29,14 @@ class ModelManager:
             checkpoint_dir: Directory containing model checkpoints
             device: Device to load models on ('cuda', 'cpu', or None for auto)
         """
-        # Resolve checkpoint directory to absolute path
-        self.checkpoint_dir = Path(checkpoint_dir).resolve()
+        # Resolve checkpoint directory to absolute path.
+        # Relative paths are resolved from the project root (parent of backend/)
+        # so local testing works regardless of CWD.
+        checkpoint_path = Path(checkpoint_dir)
+        if not checkpoint_path.is_absolute():
+            self.checkpoint_dir = (Path(__file__).resolve().parent.parent / checkpoint_path).resolve()
+        else:
+            self.checkpoint_dir = checkpoint_path
         self.device = torch.device(device if device else ('cuda' if torch.cuda.is_available() else 'cpu'))
 
         self.baseline_model: Optional[nn.Module] = None
