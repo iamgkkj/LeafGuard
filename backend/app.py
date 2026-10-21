@@ -12,9 +12,23 @@ from PIL import Image
 import torch
 
 from model_loader import ModelManager
-from gradcam import generate_gradcam, overlay_heatmap, is_gradcam_available
 from inference import predict
 from preprocessing import preprocess_image
+
+
+# ---------------------------------------------------------------------------
+# Lazy Grad-CAM imports (avoid hard-fail at startup if heavy deps missing)
+# ---------------------------------------------------------------------------
+def _load_gradcam():
+    try:
+        from gradcam import generate_gradcam, overlay_heatmap
+        return generate_gradcam, overlay_heatmap
+    except Exception as e:
+        print(f"Grad-CAM import failed: {e}")
+        return None, None
+
+
+generate_gradcam, overlay_heatmap = _load_gradcam()
 
 
 # ---------------------------------------------------------------------------
@@ -23,6 +37,8 @@ from preprocessing import preprocess_image
 checkpoint_dir = os.getenv("CHECKPOINT_DIR", "runs/models")
 model_manager = ModelManager(checkpoint_dir)
 load_status = model_manager.load_models()
+
+print(f"Model loading status: {load_status}")
 
 
 def format_confidence(val: float) -> str:
@@ -42,7 +58,6 @@ def analyze_leaf(image, model_choice):
         return "Please upload a leaf image first.", None, "Please upload a leaf image first."
 
     results_md = ""
-    gradcam_img = None
     error = None
 
     try:
@@ -85,13 +100,16 @@ def analyze_leaf(image, model_choice):
     except Exception as e:
         error = f"Inference failed: {str(e)}"
 
-    return error or results_md, gradcam_img, error or "Analysis complete."
+    return error or results_md, None, error or "Analysis complete."
 
 
 def generate_explanation(image, model_choice):
     """Grad-CAM heatmap overlay."""
     if image is None:
         return None, "Please upload a leaf image first."
+
+    if generate_gradcam is None or overlay_heatmap is None:
+        return None, "Grad-CAM is not available on this Space."
 
     try:
         model_name = "cbam" if model_choice == "compare" else model_choice
@@ -112,7 +130,7 @@ def generate_explanation(image, model_choice):
         )
 
         if heatmap is None:
-            return None, "Grad-CAM is not available on this Space."
+            return None, "Grad-CAM generation returned no heatmap."
 
         overlay = overlay_heatmap(image, heatmap)
         return overlay, "Grad-CAM explanation ready."

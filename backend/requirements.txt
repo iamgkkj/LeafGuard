@@ -23,5 +23,8 @@ grad-cam>=1.4.0
 # Model hosting / downloads (Hugging Face Hub)
 huggingface_hub>=0.24.0
 
+# Gradio UI (for Hugging Face Spaces deployment)
+gradio>=4.0.0
+
 # Utilities
 python-multipart>=0.0.6
