@@ -1,11 +1,10 @@
 """
 Model loading and management for LeafGuard AI.
-Loads both baseline and CBAM models at startup.
+Loads both baseline and CBAM models from local checkpoints.
 """
 
 import os
 import torch
-torch.set_num_threads(1)
 import torch.nn as nn
 from pathlib import Path
 from typing import Optional, Dict
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class ModelManager:
     """Manages loading and inference for both models."""
-    
+
     def __init__(self, checkpoint_dir: Path, device: Optional[str] = None):
         """
         Initialize model manager.
@@ -29,9 +28,6 @@ class ModelManager:
             checkpoint_dir: Directory containing model checkpoints
             device: Device to load models on ('cuda', 'cpu', or None for auto)
         """
-        # Resolve checkpoint directory to absolute path.
-        # Relative paths are resolved from the project root (parent of backend/)
-        # so local testing works regardless of CWD.
         checkpoint_path = Path(checkpoint_dir)
         if not checkpoint_path.is_absolute():
             self.checkpoint_dir = (Path(__file__).resolve().parent.parent / checkpoint_path).resolve()
@@ -44,15 +40,15 @@ class ModelManager:
         self.class_names: Optional[list] = None
 
         logger.info(f"ModelManager initialized with device: {self.device}")
-    
+
     def load_class_names(self) -> list:
         """
         Load class names from the training split CSV.
-        
+
         Returns:
             List of class names in label order
         """
-        # Prefer a small, deployment-friendly class-name file over the 16MB CSV.
+        # Prefer a small class-name file over the 16MB CSV.
         candidate_files = [
             Path(os.getenv("CLASS_NAMES_FILE", "")).expanduser() if os.getenv("CLASS_NAMES_FILE") else None,
             self.checkpoint_dir.parent / "class_names.txt",
@@ -89,42 +85,10 @@ class ModelManager:
         logger.info(f"Loaded {len(self.class_names)} class names from {train_csv}")
 
         return self.class_names
-    
-    def _resolve_checkpoint(self, filename: str) -> Path:
-        """
-        Resolve a checkpoint path, downloading from Hugging Face Hub if it is not
-        present locally. Local files always take priority so offline/local testing
-        works without network access.
-        """
-        local_path = self.checkpoint_dir / filename
-        if local_path.exists():
-            return local_path
-
-        hf_repo = os.getenv("HF_MODEL_REPO")
-        if not hf_repo:
-            raise FileNotFoundError(
-                f"Checkpoint {filename} not found locally at {local_path} and "
-                "HF_MODEL_REPO is not set to download it from Hugging Face Hub"
-            )
-
-        try:
-            from huggingface_hub import hf_hub_download
-            downloaded = hf_hub_download(repo_id=hf_repo, filename=filename)
-            return Path(downloaded)
-        except ImportError:
-            raise FileNotFoundError(
-                f"Checkpoint {filename} not found locally at {local_path} and "
-                "huggingface_hub is not installed, so it cannot be downloaded from HF Hub"
-            )
-        except Exception as e:
-            raise FileNotFoundError(
-                f"Could not find or download {filename}: local path missing and "
-                f"HF Hub download from {hf_repo} failed: {e}"
-            )
 
     def load_models(self) -> Dict[str, bool]:
         """
-        Load both baseline and CBAM models.
+        Load both baseline and CBAM models from local checkpoints.
 
         Returns:
             Dictionary with loading status for each model
@@ -139,9 +103,9 @@ class ModelManager:
 
         # Load baseline model
         try:
-            baseline_ckpt = self._resolve_checkpoint("baseline_best.pth")
+            baseline_ckpt = self.checkpoint_dir / "baseline_best.pth"
             self.baseline_model = build_baseline(num_classes)
-            state_dict = torch.load(baseline_ckpt, map_location=self.device)
+            state_dict = torch.load(baseline_ckpt, map_location=self.device, weights_only=False)
             # Filter out non-model keys (e.g., from thop FLOPs counting)
             state_dict = {k: v for k, v in state_dict.items() if not k.startswith('total_')}
             # Load with strict=False to handle potential key mismatches
@@ -159,9 +123,9 @@ class ModelManager:
 
         # Load CBAM model
         try:
-            cbam_ckpt = self._resolve_checkpoint("cbam_best.pth")
+            cbam_ckpt = self.checkpoint_dir / "cbam_best.pth"
             self.cbam_model = build_cbam(num_classes)
-            state_dict = torch.load(cbam_ckpt, map_location=self.device)
+            state_dict = torch.load(cbam_ckpt, map_location=self.device, weights_only=False)
             # Filter out non-model keys (e.g., from thop FLOPs counting)
             state_dict = {k: v for k, v in state_dict.items() if not k.startswith('total_')}
             # Load with strict=False to handle potential key mismatches
@@ -176,19 +140,19 @@ class ModelManager:
             import traceback
             logger.error(traceback.format_exc())
             status['cbam'] = False
-        
+
         return status
-    
+
     def get_model(self, model_name: str) -> nn.Module:
         """
         Get a model by name.
-        
+
         Args:
             model_name: 'baseline' or 'cbam'
-            
+
         Returns:
             The requested model
-            
+
         Raises:
             ValueError: If model name is invalid or model not loaded
         """
@@ -202,7 +166,7 @@ class ModelManager:
             return self.cbam_model
         else:
             raise ValueError(f"Invalid model name: {model_name}")
-    
+
     def get_classes(self) -> list:
         """Get the list of class names."""
         if self.class_names is None:

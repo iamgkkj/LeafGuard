@@ -20,7 +20,7 @@ import torch
 
 from model_loader import ModelManager
 from inference import predict, compare_models
-from gradcam import generate_gradcam, overlay_heatmap, is_gradcam_available
+from gradcam import generate_gradcam, overlay_heatmap, GRADCAM_AVAILABLE
 
 
 # Configure logging
@@ -39,7 +39,6 @@ CORS_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://l
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_origin_regex=r"https?://.*",  # Avoid brittle mismatch on trailing slash/domain variants
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,7 +93,7 @@ async def startup_event():
     load_status = model_manager.load_models()
 
     logger.info(f"Model loading status: {load_status}")
-    
+
     if not load_status.get('baseline') and not load_status.get('cbam'):
         logger.error("Failed to load any models!")
 
@@ -109,7 +108,7 @@ async def health():
             cbam_loaded=False,
             device="unknown"
         )
-    
+
     return HealthResponse(
         status="ready",
         baseline_loaded=model_manager.baseline_model is not None,
@@ -118,24 +117,12 @@ async def health():
     )
 
 
-@app.get("/v1/models")
-async def openai_compatible_models():
-    """Minimal OpenAI-compatible model listing for clients/probes that expect it."""
-    return {
-        "object": "list",
-        "data": [
-            {"id": "leafguard-baseline", "object": "model", "owned_by": "leafguard"},
-            {"id": "leafguard-cbam", "object": "model", "owned_by": "leafguard"},
-        ],
-    }
-
-
 @app.get("/classes", response_model=ClassesResponse)
 async def get_classes():
     """Get the list of supported disease classes."""
     if model_manager is None:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
-    
+
     classes = model_manager.get_classes()
     return ClassesResponse(
         classes=classes,
@@ -150,40 +137,40 @@ async def predict_endpoint(
 ):
     """
     Predict disease class for an uploaded image.
-    
+
     Args:
         file: Uploaded image file
         model: Model to use ('baseline' or 'cbam')
-        
+
     Returns:
         Prediction results with confidence and top-k predictions
     """
     if model_manager is None:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
-    
+
     # Validate model selection
     if model not in ['baseline', 'cbam']:
         raise HTTPException(status_code=400, detail="Model must be 'baseline' or 'cbam'")
-    
+
     # Check if model is loaded
     try:
         model_obj = model_manager.get_model(model)
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
-    
+
     # Validate file type
     if not file.content_type or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
-    
+
     # Read and validate image
     try:
         contents = await file.read()
         image = Image.open(BytesIO(contents))
-        
+
         # Validate image size (reasonable limit)
         if max(image.size) > 10000:
             raise HTTPException(status_code=400, detail="Image too large")
-        
+
         # Run prediction
         result = predict(
             model_obj,
@@ -191,9 +178,9 @@ async def predict_endpoint(
             model_manager.get_classes(),
             model_manager.device
         )
-        
+
         return result
-    
+
     except Exception as e:
         logger.error(f"Prediction error: {e}")
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
@@ -203,32 +190,32 @@ async def predict_endpoint(
 async def compare_endpoint(file: UploadFile = File(...)):
     """
     Run both models on the same image and compare results.
-    
+
     Args:
         file: Uploaded image file
-        
+
     Returns:
         Comparison results from both models
     """
     if model_manager is None:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
-    
+
     # Check if both models are loaded
     if model_manager.baseline_model is None or model_manager.cbam_model is None:
         raise HTTPException(status_code=503, detail="Both models must be loaded for comparison")
-    
+
     # Validate file type
     if not file.content_type or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
-    
+
     # Read and validate image
     try:
         contents = await file.read()
         image = Image.open(BytesIO(contents))
-        
+
         if max(image.size) > 10000:
             raise HTTPException(status_code=400, detail="Image too large")
-        
+
         # Run comparison
         result = compare_models(
             model_manager.baseline_model,
@@ -237,9 +224,9 @@ async def compare_endpoint(file: UploadFile = File(...)):
             model_manager.get_classes(),
             model_manager.device
         )
-        
+
         return result
-    
+
     except Exception as e:
         logger.error(f"Comparison error: {e}")
         raise HTTPException(status_code=500, detail=f"Comparison failed: {str(e)}")
@@ -252,40 +239,40 @@ async def gradcam_endpoint(
 ):
     """
     Generate Grad-CAM explanation for a prediction.
-    
+
     Args:
         file: Uploaded image file
         model: Model to use ('baseline' or 'cbam')
-        
+
     Returns:
         JSON with heatmap data (base64 encoded) or error if unavailable
     """
-    if not is_gradcam_available():
+    if not GRADCAM_AVAILABLE:
         raise HTTPException(status_code=501, detail="Grad-CAM not available (pytorch-grad-cam not installed)")
-    
+
     if model_manager is None:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
-    
+
     # Validate model selection
     if model not in ['baseline', 'cbam']:
         raise HTTPException(status_code=400, detail="Model must be 'baseline' or 'cbam'")
-    
+
     try:
         model_obj = model_manager.get_model(model)
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
-    
+
     # Validate file type
     if not file.content_type or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
-    
+
     try:
         contents = await file.read()
         image = Image.open(BytesIO(contents))
-        
+
         if max(image.size) > 10000:
             raise HTTPException(status_code=400, detail="Image too large")
-        
+
         # First get prediction to know the target label
         prediction = predict(
             model_obj,
@@ -293,7 +280,7 @@ async def gradcam_endpoint(
             model_manager.get_classes(),
             model_manager.device
         )
-        
+
         # Generate Grad-CAM
         heatmap = generate_gradcam(
             model_obj,
@@ -301,24 +288,24 @@ async def gradcam_endpoint(
             prediction['predicted_label'],
             model_manager.device
         )
-        
+
         if heatmap is None:
             raise HTTPException(status_code=500, detail="Failed to generate Grad-CAM heatmap")
-        
+
         # Create overlay
         overlay = overlay_heatmap(image, heatmap)
-        
+
         # Convert to base64 for JSON response
         import base64
         buffered = BytesIO()
         overlay.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
-        
+
         return {
             "prediction": prediction,
             "heatmap_image": f"data:image/png;base64,{img_str}"
         }
-    
+
     except Exception as e:
         logger.error(f"Grad-CAM error: {e}")
         raise HTTPException(status_code=500, detail=f"Grad-CAM generation failed: {str(e)}")
@@ -328,7 +315,7 @@ async def gradcam_endpoint(
 async def get_history():
     """
     Get recent prediction history.
-    
+
     Note: History feature is optional and not implemented in this minimal version.
     Returns empty list.
     """
