@@ -103,9 +103,15 @@ def overlay_heatmap(
     heatmap_resized = Image.fromarray((heatmap * 255).astype(np.uint8)).resize(image.size, Image.BILINEAR)
     heatmap_resized = np.array(heatmap_resized).astype(float) / 255
 
-    # Apply colormap
-    import matplotlib.cm as cm
-    colormap = cm.get_cmap('jet')
+    # Apply colormap.
+    # matplotlib >= 3.9 removed cm.get_cmap(); use the top-level registry instead.
+    import matplotlib
+    if hasattr(matplotlib, "colormaps"):
+        colormap = matplotlib.colormaps["jet"]
+    else:  # pragma: no cover - older matplotlib
+        import matplotlib.cm as cm
+        colormap = cm.get_cmap("jet")
+
     heatmap_colored = colormap(heatmap_resized)[:, :, :3]
 
     # Convert to PIL

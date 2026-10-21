@@ -39,6 +39,8 @@ CORS_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://l
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
+    # Allow any localhost port in development (Vite falls back to 5174+ if 5173 is busy)
+    allow_origin_regex=r"http://localhost(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -115,6 +117,23 @@ async def health():
         cbam_loaded=model_manager.cbam_model is not None,
         device=str(model_manager.device)
     )
+
+
+@app.get("/v1/models")
+async def openai_compatible_models():
+    """Minimal OpenAI-compatible model listing.
+
+    Some local tooling (editors, agents, monitoring clients) probes this
+    endpoint on startup. Returning a valid list keeps those probes from
+    logging 404 errors in the backend console.
+    """
+    return {
+        "object": "list",
+        "data": [
+            {"id": "leafguard-baseline", "object": "model", "owned_by": "leafguard"},
+            {"id": "leafguard-cbam", "object": "model", "owned_by": "leafguard"},
+        ],
+    }
 
 
 @app.get("/classes", response_model=ClassesResponse)
@@ -245,10 +264,13 @@ async def gradcam_endpoint(
         model: Model to use ('baseline' or 'cbam')
 
     Returns:
-        JSON with heatmap data (base64 encoded) or error if unavailable
+        JSON with heatmap data (base64 encoded) plus the prediction context
     """
     if not GRADCAM_AVAILABLE:
-        raise HTTPException(status_code=501, detail="Grad-CAM not available (pytorch-grad-cam not installed)")
+        raise HTTPException(
+            status_code=501,
+            detail="Grad-CAM not available. Install it with: pip install grad-cam"
+        )
 
     if model_manager is None:
         raise HTTPException(status_code=503, detail="Model manager not initialized")
@@ -268,7 +290,7 @@ async def gradcam_endpoint(
 
     try:
         contents = await file.read()
-        image = Image.open(BytesIO(contents))
+        image = Image.open(BytesIO(contents)).convert('RGB')
 
         if max(image.size) > 10000:
             raise HTTPException(status_code=400, detail="Image too large")
@@ -302,12 +324,17 @@ async def gradcam_endpoint(
         img_str = base64.b64encode(buffered.getvalue()).decode()
 
         return {
+            "model": model,
             "prediction": prediction,
             "heatmap_image": f"data:image/png;base64,{img_str}"
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Grad-CAM error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Grad-CAM generation failed: {str(e)}")
 
 

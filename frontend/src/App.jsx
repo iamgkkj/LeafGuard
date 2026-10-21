@@ -5,6 +5,11 @@ import './App.css'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+const MODEL_LABELS = {
+  baseline: 'Baseline MobileNetV3-Small',
+  cbam: 'MobileNetV3-Small + CBAM',
+}
+
 function App() {
   const [image, setImage] = useState(null)
   const [preview, setPreview] = useState(null)
@@ -12,8 +17,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-  const [showGradCam, setShowGradCam] = useState(false)
-  const [gradCamImage, setGradCamImage] = useState(null)
+  const [gradCam, setGradCam] = useState({ loading: false, data: null, model: null })
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -36,40 +40,31 @@ function App() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setGradCam({ loading: false, data: null, model: null })
 
     try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      let endpoint = '/predict'
       if (selectedModel === 'compare') {
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const response = await fetch(`${API_URL}/compare`, {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const data = await response.json()
-        setResult({ mode: 'compare', data })
+        endpoint = '/compare'
       } else {
-        const formData = new FormData()
-        formData.append('file', file)
         formData.append('model', selectedModel)
-
-        const response = await fetch(`${API_URL}/predict`, {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`)
-        }
-
-        const data = await response.json()
-        setResult({ mode: 'single', model: selectedModel, data })
       }
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const detail = await response.json().catch(() => null)
+        throw new Error(detail?.detail || `HTTP error! status: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setResult({ mode: selectedModel === 'compare' ? 'compare' : 'single', model: selectedModel, data })
     } catch (err) {
       setError(err.message || 'Failed to analyze image')
     } finally {
@@ -83,8 +78,7 @@ function App() {
       setPreview(URL.createObjectURL(file))
       setResult(null)
       setError(null)
-      setGradCamImage(null)
-      setShowGradCam(false)
+      setGradCam({ loading: false, data: null, model: null })
       runAnalysis(file, model)
     }
   }
@@ -105,17 +99,15 @@ function App() {
     runAnalysis(image, model)
   }
 
-  const handleGradCam = async () => {
+  const handleGradCam = async (targetModel) => {
     if (!image) return
 
-    const gradModel = model === 'compare' ? 'cbam' : model
-
-    setLoading(true)
+    setGradCam({ loading: true, data: null, model: targetModel })
     setError(null)
 
     const formData = new FormData()
     formData.append('file', image)
-    formData.append('model', gradModel)
+    formData.append('model', targetModel)
 
     try {
       const response = await fetch(`${API_URL}/gradcam`, {
@@ -124,22 +116,21 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const detail = await response.json().catch(() => null)
+        throw new Error(detail?.detail || `HTTP error! status: ${response.status}`)
       }
 
       const data = await response.json()
-      setGradCamImage(data.heatmap_image)
-      setShowGradCam(true)
+      setGradCam({ loading: false, data, model: targetModel })
     } catch (err) {
       setError(err.message || 'Failed to generate Grad-CAM')
-    } finally {
-      setLoading(false)
+      setGradCam({ loading: false, data: null, model: null })
     }
   }
 
-  const formatConfidence = (val) => {
-    return (val * 100).toFixed(1) + '%'
-  }
+  const formatConfidence = (val) => (val * 100).toFixed(1) + '%'
+
+  const formatClassName = (name) => name.replace(/___/g, ' — ').replace(/_/g, ' ')
 
   const renderTopPredictions = (predictions) => (
     <div className="top-predictions">
@@ -147,12 +138,43 @@ function App() {
       <ul>
         {predictions.map((pred, idx) => (
           <li key={idx} className={idx === 0 ? 'top-prediction' : ''}>
-            <span className="rank">{idx + 1}.</span>
-            <span className="class-name">{pred.class}</span>
+            <span className="rank">{idx + 1}</span>
+            <span className="class-name">{formatClassName(pred.class)}</span>
             <span className="pred-confidence">{formatConfidence(pred.confidence)}</span>
           </li>
         ))}
       </ul>
+    </div>
+  )
+
+  const renderConfidenceBar = (confidence) => (
+    <div className="confidence-bar" aria-hidden="true">
+      <div className="confidence-fill" style={{ width: `${Math.min(confidence * 100, 100)}%` }} />
+    </div>
+  )
+
+  const renderModelCard = (prediction, modelKey) => (
+    <div className="model-result">
+      <div className="model-card-head">
+        <span className={`model-badge ${modelKey}`}>{modelKey === 'cbam' ? 'CBAM' : 'Baseline'}</span>
+        <h3>{MODEL_LABELS[modelKey]}</h3>
+      </div>
+
+      <div className="prediction">
+        <span className="disease-name">{formatClassName(prediction.predicted_class)}</span>
+        <span className="confidence">{formatConfidence(prediction.confidence)}</span>
+      </div>
+      {renderConfidenceBar(prediction.confidence)}
+
+      {renderTopPredictions(prediction.top_predictions)}
+
+      <button
+        className="gradcam-button"
+        onClick={() => handleGradCam(modelKey)}
+        disabled={gradCam.loading}
+      >
+        {gradCam.loading && gradCam.model === modelKey ? 'Generating...' : 'Show explanation'}
+      </button>
     </div>
   )
 
@@ -192,6 +214,13 @@ function App() {
               <img src={preview} alt="Preview" className="preview-image" />
             ) : (
               <div className="upload-placeholder">
+                <div className="upload-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 16V4" />
+                    <path d="m7 9 5-5 5 5" />
+                    <path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                  </svg>
+                </div>
                 <p>Click or drag image here</p>
                 <span className="upload-hint">Supports JPG, PNG</span>
               </div>
@@ -242,60 +271,56 @@ function App() {
           <div className="results-section">
             {result.mode === 'compare' ? (
               <div className="comparison-results">
-                <div className="model-result">
-                  <h3>Baseline MobileNetV3-Small</h3>
-                  <div className="prediction">
-                    <span className="disease-name">{result.data.baseline.predicted_class}</span>
-                    <span className="confidence">{formatConfidence(result.data.baseline.confidence)}</span>
-                  </div>
-                  {renderTopPredictions(result.data.baseline.top_predictions)}
-                </div>
-                <div className="model-result">
-                  <h3>MobileNetV3-Small + CBAM</h3>
-                  <div className="prediction">
-                    <span className="disease-name">{result.data.cbam.predicted_class}</span>
-                    <span className="confidence">{formatConfidence(result.data.cbam.confidence)}</span>
-                  </div>
-                  {renderTopPredictions(result.data.cbam.top_predictions)}
-                </div>
-                <div className="agreement">
-                  {result.data.agreement ? 'Both models agree' : 'Models disagree'}
+                {renderModelCard(result.data.baseline, 'baseline')}
+                {renderModelCard(result.data.cbam, 'cbam')}
+                <div className={`agreement ${result.data.agreement ? '' : 'disagree'}`}>
+                  {result.data.agreement ? (
+                    <>Both models agree on the same disease class</>
+                  ) : (
+                    <>Models disagree — see top predictions for each</>
+                  )}
                 </div>
               </div>
             ) : (
-              <>
-                <div className="main-prediction">
-                  <h3>Predicted disease</h3>
-                  <div className="prediction-large">
-                    <span className="disease-name-large">{result.data.predicted_class}</span>
-                    <span className="confidence-large">{formatConfidence(result.data.confidence)}</span>
-                  </div>
-                </div>
-
-                {renderTopPredictions(result.data.top_predictions)}
-
-                <button
-                  className="gradcam-button"
-                  onClick={handleGradCam}
-                  disabled={loading}
-                >
-                  Show explanation
-                </button>
-              </>
+              <div className="single-result">
+                {renderModelCard(result.data, result.model)}
+              </div>
             )}
           </div>
         )}
 
-        {showGradCam && gradCamImage && (
+        {gradCam.loading && (
           <div className="gradcam-section">
             <h3>Explanation</h3>
-            <img src={gradCamImage} alt="Grad-CAM heatmap" className="gradcam-image" />
-            <button
-              className="close-button"
-              onClick={() => setShowGradCam(false)}
-            >
-              Close
-            </button>
+            <p className="gradcam-loading">Generating Grad-CAM heatmap for {MODEL_LABELS[gradCam.model]}...</p>
+          </div>
+        )}
+
+        {gradCam.data && (
+          <div className="gradcam-section">
+            <div className="gradcam-head">
+              <h3>Explanation — {MODEL_LABELS[gradCam.data.model]}</h3>
+              <button className="close-button" onClick={() => setGradCam({ loading: false, data: null, model: null })}>
+                Close
+              </button>
+            </div>
+
+            <p className="gradcam-caption">
+              Prediction: <strong>{formatClassName(gradCam.data.prediction.predicted_class)}</strong>
+              {' · '}
+              Confidence: <strong>{formatConfidence(gradCam.data.prediction.confidence)}</strong>
+            </p>
+
+            <div className="gradcam-grid">
+              <figure>
+                <img src={preview} alt="Original leaf" className="gradcam-image" />
+                <figcaption>Original</figcaption>
+              </figure>
+              <figure>
+                <img src={gradCam.data.heatmap_image} alt="Grad-CAM heatmap" className="gradcam-image" />
+                <figcaption>Grad-CAM (red = high attention)</figcaption>
+              </figure>
+            </div>
           </div>
         )}
       </main>
